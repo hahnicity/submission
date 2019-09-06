@@ -15,7 +15,7 @@ from wtforms.fields import PasswordField
 from sqlalchemy import Date, cast
 
 import numpy as np
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_auc_score, f1_score
 from scipy.stats import hmean
 
 from submission import app, security, db
@@ -34,12 +34,12 @@ def upload_file():
     try:
 
         now = datetime.now()
-        
+
         competitions = [c for c in Competition.query.all() if (not c.start_on or
             c.start_on <= now) and (not c.end_on or c.end_on >= now)]
 
         if request.method == 'POST':
-            
+
             competition_id = request.form.get('competitions')
             if competition_id == None:
                 flash('No competition selected')
@@ -57,24 +57,24 @@ def upload_file():
             if file.filename == '':
                 flash('No selected file')
                 return redirect(request.url)
-            
+
             # check if the user has made submissions in the past 24h
-            if Submission.query.filter_by(user_id=user_id).filter_by(competition_id=competition_id).filter(Submission.submitted_on>now-timedelta(hours=23)).count() > 0:
-                flash("You already did a submission in the past 24h.")
-                return redirect(request.url)
+            #if Submission.query.filter_by(user_id=user_id).filter_by(competition_id=competition_id).filter(Submission.submitted_on>now-timedelta(hours=23)).count() > 0:
+            #    flash("You already did a submission in the past 24h.")
+            #    return redirect(request.url)
 
             if file:
 
                 filename = str(uuid.uuid4()) + ".csv"
                 filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
                 file.save(filepath)
-                
+
                 # save submission
                 submission = Submission()
                 submission.user_id = login.current_user.id
                 submission.competition_id = competition_id
                 submission.filename = filename
-                (submission.preview_score, submission.score) = get_scores(filepath, competition_id)
+                (submission.norm_score, submission.dta_score, submission.bsa_score) = get_scores(filepath, competition_id)
                 submission.submitted_on = now.replace(microsecond=0)
                 submission.comment = request.form.get("comment")
                 db.session.add(submission)
@@ -104,52 +104,19 @@ def get_scores(filename, competition_id):
 
     if predictions['id'].size == 0 or not np.array_equal(predictions['id'], groundtruth['id']):
         raise ParsingError("Error parsing the submission file. Make sure it has the right format and contains the right ids.")
-    
-    # split according to datasetid
-    predictions_poland = []
-    groundtruth_poland = []
-    predictions_warblr = []
-    groundtruth_warblr = []
-    predictions_chern = []
-    groundtruth_chern = []
+
+    pred = []
+    gt = []
     for i, _ in enumerate(groundtruth):
-        if groundtruth['datasetid'][i] == 'PolandNFC':
-            predictions_poland.append(predictions['v0'][i])
-            groundtruth_poland.append(groundtruth['v0'][i])
-        elif groundtruth['datasetid'][i] == 'warblrb10k':
-            predictions_warblr.append(predictions['v0'][i])
-            groundtruth_warblr.append(groundtruth['v0'][i])
-        else:
-            predictions_chern.append(predictions['v0'][i])
-            groundtruth_chern.append(groundtruth['v0'][i])
+        pred.append(predictions['v0'][i])
+        gt.append(groundtruth['v0'][i])
 
-    # take 12% of Chern+warblr for preview, and the remaining 88% of Chern+warblr plus 100% of Poland for final.
-    preview_ratio = 0.12
+    norm_score = f1_score(gt, pred, pos_label=0, average='micro')
+    dta_score = f1_score(gt, pred, pos_label=1, average='micro')
+    bsa_score = f1_score(gt, pred, pos_label=2, average='micro')
 
-    chern_split_point = int(preview_ratio * len(predictions_chern))
-    predictions_chern_p = predictions_chern[:chern_split_point]
-    groundtruth_chern_p = groundtruth_chern[:chern_split_point]
-    predictions_chern_f = predictions_chern[chern_split_point:]
-    groundtruth_chern_f = groundtruth_chern[chern_split_point:]
+    return (norm_score, dta_score, bsa_score)
 
-    warblr_split_point = int(preview_ratio * len(predictions_warblr))
-    predictions_warblr_p = predictions_warblr[:warblr_split_point]
-    groundtruth_warblr_p = groundtruth_warblr[:warblr_split_point]
-    predictions_warblr_f = predictions_warblr[warblr_split_point:]
-    groundtruth_warblr_f = groundtruth_warblr[warblr_split_point:]
-
-    # compute scores for all datasets
-    score_poland = roc_auc_score(groundtruth_poland, predictions_poland)
-    score_warblr_p = roc_auc_score(groundtruth_warblr_p, predictions_warblr_p)
-    score_warblr_f = roc_auc_score(groundtruth_warblr_f, predictions_warblr_f)
-    score_chern_p = roc_auc_score(groundtruth_chern_p, predictions_chern_p)
-    score_chern_f = roc_auc_score(groundtruth_chern_f, predictions_chern_f)
-
-    # compute preview / final scores
-    score_p = hmean([score_warblr_p, score_chern_p])
-    score_f = hmean([score_warblr_f, score_chern_f, score_poland])
-    
-    return (score_p, score_f)
 
 @app.route('/scores', methods=['GET', 'POST'])
 @login_required
@@ -175,15 +142,16 @@ def get_submissions():
 
         # get all users
         user_ids = sorted(list({s.user_id for s in submissions}))
-        dates = sorted(list({s.submitted_on.date() for s in submissions}))
+        dates = sorted(list({s.submitted_on for s in submissions}))
 
-        rows = ""
+        rows = "["
         for d in dates:
-            row = '{{"c":[{{"v":"Date({0},{1},{2})"}}'.format(d.year, d.month - 1, d.day)
+            row = '{{"c":[{{"v":"Date({0},{1},{2},{3},{4})"}}'.format(d.year, d.month - 1, d.day, d.hour, d.minute)
             for u in user_ids:
-                s = submissions.filter(cast(Submission.submitted_on, Date)==d).filter(Submission.user_id==u)
+                s = submissions.filter(Submission.submitted_on==d).filter(Submission.user_id==u)
                 if s.count() > 0:
-                    score = s.first().preview_score * 100
+                    # XXX add dta score and bsa score. It seems that scoring is 0-100
+                    score = s.first().norm_score * 100
                     row += ',{{"v":{:.2f}}}'.format(score)
                     row += ',{{"v":"<div style=\\"padding:5px\\"><b>Date</b>: {}<br><b>Username</b>: {}<br><b>Score</b>: {:.2f}<br><b>Comment</b>: {}</div>"}}'.format(
                                 s.first().submitted_on.strftime("%b %d, %Y"),
@@ -196,22 +164,21 @@ def get_submissions():
 
             row += "]},"
             rows += row
+        if rows[-1] == ',':
+            rows = rows[:-1]
+        rows += ']'
 
-
-        s = """    
-        {{   
+        s = """
+        {{
           "cols": [
                 {{"id":"","label":"Date","pattern":"","type":"datetime"}},
                 {0}
-              ],  
-          "rows": [     
-                {1}
-              ]
+              ],
+          "rows": {1}
         }}""".format(
                 ','.join('{{"id":"","label":"{}","pattern":"","type":"number"}},{{"id":"","label":"Comment","pattern":"","type":"string","role":"tooltip","p":{{"html":true}}}}'.format(User.query.get(u).username) for u in user_ids),
                 rows
                 )
-
         return jsonify({"count": count, "s": s})
 
 
@@ -290,7 +257,7 @@ class CompetitionAdmin(AdminModelView):
             'allow_overwrite': False
         }
     }
-    
+
 
 @login_required
 @app.route('/groundtruth/<filename>')
@@ -310,8 +277,8 @@ def get_groundtruth(filename):
 def get_submission(filename):
 
     submissions = Submission.query.filter_by(filename=filename)
-    
-    # make sure the current user is whether admin or the user who actually submitted the file    
+
+    # make sure the current user is whether admin or the user who actually submitted the file
     if ( submissions.count() > 0 and (login.current_user.has_role('admin') or login.current_user.id == submissions.first().user_id)):
         return send_from_directory(app.config['UPLOAD_FOLDER'],
                                    filename)

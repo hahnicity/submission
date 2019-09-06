@@ -10,7 +10,7 @@ class Role(db.Model, RoleMixin):
     id = db.Column(db.Integer(), primary_key=True)
     name = db.Column(db.String(80), unique=True, nullable=False)
     description = db.Column(db.Text)
-    
+
     def __repr__(self):
         return self.name
 
@@ -30,7 +30,7 @@ class User(db.Model, UserMixin):
                             backref=db.backref('users', lazy='dynamic'))
     submissions = db.relationship('Submission', backref='user',
                             lazy='dynamic')
-    
+
     def __repr__(self):
         return self.username
 
@@ -45,7 +45,7 @@ class Competition(db.Model):
     groundtruth = db.Column(db.String(500), nullable=False)
     submissions = db.relationship('Submission', backref='competition',
                             lazy='dynamic')
-    
+
     def __repr__(self):
         return self.name
 
@@ -59,9 +59,10 @@ class Submission(db.Model):
     filename = db.Column(db.String(500), nullable=False)
     submitted_on = db.Column(db.DateTime())
     comment = db.Column(db.Text)
-    score = db.Column(db.Float)
-    preview_score = db.Column(db.Float)
-    
+    norm_score = db.Column(db.Float)
+    dta_score = db.Column(db.Float)
+    bsa_score = db.Column(db.Float)
+
     def __repr__(self):
         return "{}".format(self.id)
 
