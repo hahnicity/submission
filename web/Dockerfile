@@ -20,7 +20,7 @@ ENTRYPOINT ["/entrypoint.sh"]
 # Install conda
 RUN apt-get update --fix-missing && apt-get install -y wget bzip2 ca-certificates \
     libglib2.0-0 libxext6 libsm6 libxrender1 \
-    git mercurial subversion
+    git mercurial subversion libxml2 libc6
 RUN wget --quiet https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh && \
     /bin/bash ~/miniconda.sh -b -p /opt/conda && \
     rm ~/miniconda.sh
@@ -40,4 +40,3 @@ WORKDIR /myapp
 
 
 CMD ["/usr/bin/supervisord"]
-

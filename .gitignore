@@ -3,5 +3,4 @@ migrations
 __pycache__/
 *.swp
 *.py[cod]
-*/files/*
-
+*files*
