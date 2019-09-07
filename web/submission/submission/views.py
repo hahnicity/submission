@@ -150,14 +150,19 @@ def get_submissions():
             for u in user_ids:
                 s = submissions.filter(Submission.submitted_on==d).filter(Submission.user_id==u)
                 if s.count() > 0:
-                    # XXX add dta score and bsa score. It seems that scoring is 0-100
-                    score = s.first().norm_score * 100
+                    norm_score = round(s.first().norm_score, 3)
+                    dta_score = round(s.first().dta_score, 3)
+                    bsa_score = round(s.first().bsa_score, 3)
+                    try:
+                        score = hmean([norm_score, dta_score, bsa_score])
+                    except ValueError:
+                        score = 0
                     row += ',{{"v":{:.2f}}}'.format(score)
                     row += ',{{"v":"<div style=\\"padding:5px\\"><b>Date</b>: {}<br><b>Username</b>: {}<br><b>Score</b>: {:.2f}<br><b>Comment</b>: {}</div>"}}'.format(
                                 s.first().submitted_on.strftime("%b %d, %Y"),
                                 User.query.get(u).username,
                                 score,
-                                s.first().comment.replace('\n',' ').replace('\r',' '))
+                                s.first().comment.replace('\n',' ').replace('\r',' ') + " Score breakdown: Normal: {} DTA: {} BSA: {}".format(norm_score, dta_score, bsa_score))
                 else:
                     row += ',{"v":"null"}'
                     row += ',{"v":"null"}'
