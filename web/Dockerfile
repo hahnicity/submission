@@ -31,6 +31,8 @@ ENV PATH /opt/conda/bin:$PATH
 COPY env.yml /tmp/
 RUN conda env create -f /tmp/env.yml
 ENV PATH /opt/conda/envs/submission/bin:$PATH
+ENV TZ=America/Los_Angeles
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # Add app
 ENV PYTHONPATH /myapp:/opt/conda/envs/submission/lib/python3.6/site-packages:/$PYTHONPATH

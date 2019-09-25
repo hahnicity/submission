@@ -159,7 +159,7 @@ def get_submissions():
                         score = 0
                     row += ',{{"v":{:.2f}}}'.format(score)
                     row += ',{{"v":"<div style=\\"padding:5px\\"><b>Date</b>: {}<br><b>Username</b>: {}<br><b>Score</b>: {:.2f}<br><b>Comment</b>: {}</div>"}}'.format(
-                                s.first().submitted_on.strftime("%b %d, %Y"),
+                                s.first().submitted_on.strftime("%-H:%M:%S %b %d, %Y"),
                                 User.query.get(u).username,
                                 score,
                                 s.first().comment.replace('\n',' ').replace('\r',' ') + " Score breakdown: Normal: {} DTA: {} BSA: {}".format(norm_score, dta_score, bsa_score))

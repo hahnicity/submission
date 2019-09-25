@@ -60,7 +60,7 @@ function plot_data(json) {
             }
         },
         hAxis: {
-            format: 'MMM dd, yy'
+            format: 'HH:MM MMM dd, yy'
         },
         pointSize: 5,
         tooltip: { isHtml: true },
@@ -68,7 +68,7 @@ function plot_data(json) {
     };
 
     var date_formatter = new google.visualization.DateFormat({
-            pattern: "MMM dd, yyyy"
+            pattern: "HH:MM MMM dd, yyyy"
     });
     date_formatter.format(data, 0);
 
