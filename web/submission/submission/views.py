@@ -162,7 +162,7 @@ def get_submissions():
                                 s.first().submitted_on.strftime("%-H:%M:%S %b %d, %Y"),
                                 User.query.get(u).username,
                                 score,
-                                s.first().comment.replace('\n',' ').replace('\r',' ') + " Score breakdown: Normal: {} DTA: {} BSA: {}".format(norm_score, dta_score, bsa_score))
+                                s.first().comment.replace('\n',' ').replace('\r',' ') + " Score breakdown: Normal: {} BSA: {} DTA: {}".format(norm_score, bsa_score, dta_score))
                 else:
                     row += ',{"v":"null"}'
                     row += ',{"v":"null"}'
