@@ -111,9 +111,9 @@ def get_scores(filename, competition_id):
         pred.append(predictions['v0'][i])
         gt.append(groundtruth['v0'][i])
 
-    norm_score = f1_score(gt, pred, pos_label=0, average='micro')
-    dta_score = f1_score(gt, pred, pos_label=1, average='micro')
-    bsa_score = f1_score(gt, pred, pos_label=2, average='micro')
+    norm_score = f1_score(gt, pred, average=None)[0]
+    bsa_score = f1_score(gt, pred, average=None)[1]
+    dta_score = f1_score(gt, pred, average=None)[2]
 
     return (norm_score, dta_score, bsa_score)
 
